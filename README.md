@@ -1,19 +1,70 @@
-# bias_agent
-SEN4018- Data Science with Python
-Project Proposal
+---
+title: bias_detector
+emoji: 🤖
+colorFrom: yellow
+colorTo: blue
+sdk: gradio
+sdk_version: 6.11.0
+app_file: app.py
+pinned: false
+---
 
-Team Members:
-Eylül Çelen, 2202373
-Mahir Gündoğan, 2284509
+# AutoBiasAgent
 
-Motivation: The increasing use of AI systems in real-world decision-making such as hiring, healthcare, and finance has made data quality and fairness critically important. Many machine learning models unintentionally learn and amplify biases present in datasets, leading to unfair or discriminatory outcomes. Our motivation for this project is to build an agentic AI system that can autonomously detect, analyze, and explain biases in datasets before they are used in model training. Instead of relying on manual inspection, this agent will actively investigate the dataset, decide what to analyze next, and provide interpretable results.
+Autonomous 4-phase dataset bias detection — works on **any CSV**.
 
-Kind of Problem: This project addresses a data-centric AI problem specifically, bias detection in structured datasets and automated exploratory data analysis. More specifically, it is a decision-making under uncertainty problem. The agent does not know in advance which columns are biased or how severe the imbalance is. It must use tools to gather evidence, reason about severity, prioritize its findings, and report its conclusions all without human guidance during the run.
+## What It Does
 
-What Problem Being Solved: Many datasets contain hidden biases such as, gender imbalance, age or socioeconomic skew or geographic underrepresentation. These biases can lead to discriminatory ML models, poor generalization or ethical and legal risks.
+| Phase | What Happens |
+|---|---|
+| **Phase 1** | Per-column distribution analysis + chi-squared significance test |
+| **Phase 2** | Chain-of-thought synthesis + Cramér's V compounding detection |
+| **Phase 3** | Intersectional bias across column pairs |
+| **Phase 4** | Plain-English LLM explanation per biased column |
+| **Judge** | Independent GPT-4o-mini evaluation of all findings |
 
-Technical Approach: This project will be implemented as an end-to-end agentic system using Python, where the user interacts with the system through a simple web interface built with Gradio. The backend will rely on pandas for data processing and libraries such as matplotlib and seaborn for visualization. Once a CSV file is uploaded, the agent will automatically inspect the dataset, determine column types, and decide which analyses to perform. The system will include an autonomous decision loop where the agent iteratively selects actions such as distribution analysis, cross-feature comparison, or visualization based on intermediate findings. Additionally, a language model integrated via Hugging Face will be used to generate human-readable explanations and to evaluate whether the detected patterns are meaningful or potentially misleading.
+## Features
 
-Datasets: The system is designed to operate on structured CSV dataset provided by the user however, to test and validate the effectiveness of the agent, several benchmark datasets will be used during development. These include the Titanic dataset, which demonstrates real-world distribution differences, as well as datasets like Adult Income and synthetically generated biased datasets such other datasets will be derived from Kaggle as CSV file.
+- Upload **any CSV** — not just Titanic
+- Pick any column as the **target/outcome** (Survived, Churn, Label, etc.)
+- **Sensitive attribute detection** — flags sex, race, age, religion, etc. automatically
+- **Statistical significance** — p-values filter out noise from small datasets
+- **Risk levels** — CRITICAL / HIGH / MEDIUM / LOW based on 4 combined factors
+- **Compounding bias** — Cramér's V catches correlated biased columns that amplify each other
+- **Intersectional analysis** — outcome rates across column *combinations* (e.g. Sex × Pclass)
+- **Plain-English explanations** — LLM explains what each bias means and how to fix it
 
-Team Responsibilities: Team member Eylül (2202373) will focus on the core system implementation, including data processing, bias detection algorithms, and the agent decision loop. The other member Mahir (2284509) will handle the user interface, visualization components, and integration of the language model for explanation and evaluation. Both team members will jointly contribute to testing the system on multiple datasets, debugging, preparing the documentation, and deploying the final application on Hugging Face Spaces.
+## Setup
+
+1. Add `OPENAI_API_KEY` in **Settings → Secrets**
+2. Click **Factory reboot**
+3. Upload a CSV (or use the bundled Titanic fallback)
+4. Select your target column and any columns to ignore
+5. Click **▶ Run Agent**
+
+## File Structure
+
+```
+app.py            — Gradio UI + pipeline orchestration
+agent.py          — BiasAgent: 4-phase detection loop + LLM judge
+tools.py          — Stateless analysis functions (pure Python + scipy)
+prompts.py        — Prompt templates
+requirements.txt
+train.csv         — Bundled Titanic fallback dataset (optional)
+```
+
+## Risk Level Logic
+
+| Level | Conditions |
+|---|---|
+| **CRITICAL** | Sensitive attribute + biased + statistically significant + large outcome gap (≥20pp) |
+| **HIGH** | Biased + significant + gap ≥15pp OR sensitive attribute + biased |
+| **MEDIUM** | Biased but not significant or small gap |
+| **LOW** | Not biased |
+
+Columns involved in compounding pairs (Cramér's V ≥ 0.30) are upgraded one risk level.
+
+## Cost
+
+~$0.0001 per LLM call (GPT-4o-mini).
+Typical run: 3–5 calls = **~$0.0003–0.0005 total**.
