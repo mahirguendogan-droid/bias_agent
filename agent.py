@@ -5,9 +5,8 @@ Improvements over v2:
   1. Sensitive column tagging  — protected attributes flagged with higher scrutiny
   2. Chi-squared significance  — p-value filters out noise from small datasets
   3. Chain-of-thought synthesis— agent reasons across all columns after individual analysis
-  4. Intersectional bias       — detects outcome gaps in column *combinations*
-  5. Cramér's V compounding    — flags correlated biased columns that amplify each other
-  6. Per-finding LLM explain   — one cheap call per biased column for plain-English insight
+  4. Cramér's V compounding    — flags correlated biased columns that amplify each other
+  5. Per-finding LLM explain   — one cheap call per biased column for plain-English insight
 
 Total LLM calls:
   - 1 per biased column   (plain-English explanation — gpt-4o-mini, ~$0.0001 each)
@@ -31,8 +30,6 @@ from tools import (
     outcome_rate_by,
     outcome_gap,
     cramers_v,
-    intersectional_bias,
-    intersectional_outcome_gap,
     infer_column_context,
     missing_rate,
     dataset_summary,
@@ -83,8 +80,7 @@ class BiasAgent:
 
         Phase 1 — Per-column analysis (pure Python)
         Phase 2 — Chain-of-thought synthesis (pure Python)
-        Phase 3 — Intersectional analysis on top biased pairs (pure Python)
-        Phase 4 — Per-finding LLM explanations (1 LLM call per biased column)
+        Phase 3 — Per-finding LLM explanations (1 LLM call per biased column)
         """
         self._log("=" * 65)
         self._log("AutoBiasAgent — Upgraded Detection Pipeline")
@@ -134,8 +130,7 @@ class BiasAgent:
                 "dominant_share": round(dominant_share, 4),
                 "severity": round(severity, 4),
                 "risk_level": risk,
-                "explanation": None,       # filled in Phase 4
-                "intersectional": None,    # filled in Phase 3
+                "explanation": None,       # filled in Phase 3
             }
             findings.append(finding)
 
@@ -164,12 +159,8 @@ class BiasAgent:
         self._log("\n── PHASE 2: Chain-of-Thought Synthesis ──────────────────────")
         findings = self._synthesize(findings)
 
-        # ── Phase 3: Intersectional analysis on top biased pairs ─────────────
-        self._log("\n── PHASE 3: Intersectional Bias Analysis ────────────────────")
-        findings = self._intersectional_pass(findings)
-
-        # ── Phase 4: Per-finding LLM explanations ────────────────────────────
-        self._log("\n── PHASE 4: LLM Plain-English Explanations ──────────────────")
+        # ── Phase 3: Per-finding LLM explanations ────────────────────────────
+        self._log("\n── PHASE 3: LLM Plain-English Explanations ──────────────────")
         findings = self._explain_findings(findings)
 
         # ── Final ranking ─────────────────────────────────────────────────────
@@ -229,48 +220,6 @@ class BiasAgent:
 
         return findings
 
-    # ── Phase 3: Intersectional analysis ─────────────────────────────────────
-
-    def _intersectional_pass(self, findings: list[dict]) -> list[dict]:
-        """
-        For each pair of biased columns, compute intersectional outcome rates.
-        Only runs if a target column is set.
-        """
-        if not self.target_col:
-            self._log("   Skipped — no target column selected.")
-            return findings
-
-        biased = [f for f in findings if f["biased"]]
-        if len(biased) < 2:
-            self._log("   Fewer than 2 biased columns — no intersectional pairs.")
-            return findings
-
-        col_map = {f["column"]: f for f in findings}
-
-        for col_a, col_b in combinations([f["column"] for f in biased], 2):
-            self._log(f"   🔧 TOOL CALL → intersectional_bias('{col_a}', '{col_b}', '{self.target_col}')")
-            inter = intersectional_bias(self.df, col_a, col_b, self.target_col)
-            inter_gap = intersectional_outcome_gap(inter)
-
-            if inter:
-                best  = max(inter, key=inter.get)
-                worst = min(inter, key=inter.get)
-                self._log(f"      Best subgroup : {best} → {inter[best]*100:.1f}%")
-                self._log(f"      Worst subgroup: {worst} → {inter[worst]*100:.1f}%")
-                self._log(f"      Intersectional gap: {inter_gap*100:.1f}pp")
-
-                # Attach to the first column in the pair
-                if col_map[col_a]["intersectional"] is None:
-                    col_map[col_a]["intersectional"] = {}
-                col_map[col_a]["intersectional"][f"× {col_b}"] = {
-                    "rates": inter,
-                    "gap": inter_gap,
-                }
-            else:
-                self._log(f"      No qualifying subgroups (groups too small).")
-
-        return findings
-
     # ── Phase 4: Per-finding LLM explanations ────────────────────────────────
 
     def _explain_findings(self, findings: list[dict]) -> list[dict]:
@@ -287,15 +236,6 @@ class BiasAgent:
         for f in biased:
             col = f["column"]
             self._log(f"   🤖 LLM CALL → explain '{col}'")
-
-            inter_summary = ""
-            if f.get("intersectional"):
-                for pair_key, pair_data in f["intersectional"].items():
-                    inter_summary += (
-                        f"\n  Intersectional analysis {pair_key}: "
-                        f"subgroup rates = {pair_data['rates']}, "
-                        f"gap = {pair_data['gap']*100:.1f}pp."
-                    )
 
             prompt = f"""You are a data scientist explaining a bias finding to a non-technical stakeholder.
 

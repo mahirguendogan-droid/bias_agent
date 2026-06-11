@@ -4,7 +4,6 @@ app.py — AutoBiasAgent UI, upgraded for richer judgement.
 New vs v2:
   - Risk level badges (CRITICAL / HIGH / MEDIUM / LOW) in the log
   - Explanations tab showing plain-English LLM insight per biased column
-  - Intersectional heatmap chart (when target column is set)
   - Phase progress visible in status bar
   - Sensitive column warning banner in dataset preview
 """
@@ -99,7 +98,6 @@ def run_pipeline(file_obj, target_col_raw, ignore_cols_raw):
         judge_verdict = agent.evaluate(findings)
         explanations_text = _format_explanations(findings, target_col)
         fig_dist = make_distribution_charts(df, findings, target_col)
-        fig_inter = make_intersectional_chart(findings) if target_col else None
 
         biased = sum(f["biased"] for f in findings)
         critical = sum(1 for f in findings if f["risk_level"] == "CRITICAL")
@@ -107,7 +105,7 @@ def run_pipeline(file_obj, target_col_raw, ignore_cols_raw):
             f"✅ Done — {len(findings)} columns analysed | "
             f"{biased} biased | {critical} CRITICAL risk"
         )
-        return analysis_log, judge_verdict, explanations_text, fig_dist, fig_inter, status
+        return analysis_log, judge_verdict, explanations_text, fig_dist, status
 
     except Exception as e:
         err = f"❌ {type(e).__name__}: {e}\n\n{traceback.format_exc()}"
@@ -129,20 +127,6 @@ def _format_explanations(findings: list[dict], target_col: str | None) -> str:
             lines.append(f["explanation"])
         else:
             lines.append("No explanation generated.")
-
-        if f.get("intersectional"):
-            lines.append("")
-            lines.append("Intersectional findings:")
-            for pair_key, pair_data in f["intersectional"].items():
-                rates = pair_data["rates"]
-                gap = pair_data["gap"]
-                best  = max(rates, key=rates.get)
-                worst = min(rates, key=rates.get)
-                lines.append(
-                    f"  {pair_key}: best subgroup '{best}' ({rates[best]*100:.1f}%) vs "
-                    f"worst '{worst}' ({rates[worst]*100:.1f}%) — "
-                    f"{gap*100:.1f}pp gap"
-                )
         lines.append("")
 
     return "\n".join(lines)
@@ -226,61 +210,6 @@ def make_distribution_charts(df, findings, target_col):
     return fig
 
 
-def make_intersectional_chart(findings: list[dict]):
-    """
-    Heatmap of intersectional outcome rates for each biased column pair.
-    Only shown when a target column is set and intersectional data exists.
-    """
-    inter_findings = [
-        f for f in findings
-        if f.get("intersectional") and f["biased"]
-    ]
-    if not inter_findings:
-        return None
-
-    n_pairs = sum(len(f["intersectional"]) for f in inter_findings)
-    fig, axes = plt.subplots(1, n_pairs, figsize=(max(5, 5 * n_pairs), 4))
-    if n_pairs == 1:
-        axes = [axes]
-
-    fig.patch.set_facecolor("#0f172a")
-    ax_idx = 0
-
-    for f in inter_findings:
-        for pair_key, pair_data in f["intersectional"].items():
-            rates = pair_data["rates"]
-            ax = axes[ax_idx]
-            ax_idx += 1
-
-            subgroups = list(rates.keys())
-            values    = [rates[s] * 100 for s in subgroups]
-
-            # Color bars by value (green = high, red = low)
-            norm_vals = np.array(values)
-            colors = plt.cm.RdYlGn(  # type: ignore
-                (norm_vals - norm_vals.min()) / max(norm_vals.max() - norm_vals.min(), 0.01)
-            )
-
-            bars = ax.barh(subgroups, values, color=colors, edgecolor="white", linewidth=0.3)
-            ax.set_facecolor("#1e293b")
-            ax.tick_params(colors="white", labelsize=7)
-            ax.set_xlabel("Outcome rate (%)", color="white", fontsize=8)
-            ax.set_title(
-                f"{f['column']} {pair_key}", color="#c4b5fd",
-                fontweight="bold", fontsize=9,
-            )
-            ax.spines[:].set_visible(False)
-
-            for bar, val in zip(bars, values):
-                ax.text(bar.get_width() + 0.5, bar.get_y() + bar.get_height() / 2,
-                        f"{val:.1f}%", va="center", color="white", fontsize=7)
-
-    fig.suptitle("Intersectional Bias — Outcome Rates by Subgroup",
-                 color="white", fontsize=12, fontweight="bold")
-    plt.tight_layout()
-    return fig
-
-
 # ── Gradio UI ─────────────────────────────────────────────────────────────────
 
 CSS = """
@@ -295,7 +224,7 @@ with gr.Blocks(title="AutoBiasAgent", css=CSS) as demo:
         <div style="text-align:center;padding:1rem 0">
             <h1 style="color:#6366f1;margin:0">🤖 AutoBiasAgent</h1>
             <p style="color:#94a3b8;margin:4px 0 0">
-                4-phase bias detection · Statistical significance · Intersectional analysis · LLM explanations
+                3-phase bias detection · Statistical significance · Compounding correlation · LLM explanations
             </p>
         </div>
     """)
@@ -314,7 +243,7 @@ with gr.Blocks(title="AutoBiasAgent", css=CSS) as demo:
                 label="🎯 Target / outcome column",
                 choices=["(none)"],
                 value="(none)",
-                info="Column used for outcome-rate and intersectional analysis (e.g. Survived, Churn).",
+                info="Column used for outcome-rate analysis (e.g. Survived, Churn).",
             )
             ignore_cols = gr.CheckboxGroup(
                 label="🚫 Columns to ignore",
@@ -336,7 +265,7 @@ with gr.Blocks(title="AutoBiasAgent", css=CSS) as demo:
     with gr.Tabs():
         with gr.TabItem("🔍 Agent Log"):
             log_box = gr.Textbox(lines=22, max_lines=50,
-                                 placeholder="4-phase detection log appears here …")
+                                 placeholder="3-phase detection log appears here …")
         with gr.TabItem("💡 Plain-English Explanations"):
             explain_box = gr.Textbox(lines=22, max_lines=50,
                                      placeholder="LLM-generated plain-English explanations per biased column …")
@@ -345,21 +274,18 @@ with gr.Blocks(title="AutoBiasAgent", css=CSS) as demo:
                                    placeholder="Judge scoring appears here …")
         with gr.TabItem("📊 Distribution Charts"):
             chart_dist = gr.Plot(label="Distribution & Outcome Overlay")
-        with gr.TabItem("🔀 Intersectional Analysis"):
-            chart_inter = gr.Plot(label="Intersectional Outcome Rates")
 
     run_btn.click(
         fn=run_pipeline,
         inputs=[file_input, target_col, ignore_cols],
-        outputs=[log_box, judge_box, explain_box, chart_dist, chart_inter, status_box],
+        outputs=[log_box, judge_box, explain_box, chart_dist, status_box],
     )
 
     gr.HTML("""
         <hr style="border-color:#334155;margin-top:1.5rem">
         <div style="text-align:center;color:#475569;font-size:.78rem;padding:.5rem 0">
             AutoBiasAgent · Phase 1: Distribution + Chi² ·
-            Phase 2: Cramér's V Compounding · Phase 3: Intersectional ·
-            Phase 4: LLM Explanations
+            Phase 2: Cramér's V Compounding · Phase 3: LLM Explanations
         </div>
     """)
 

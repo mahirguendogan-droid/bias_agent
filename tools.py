@@ -156,49 +156,6 @@ def cramers_v(df: pd.DataFrame, col_a: str, col_b: str) -> float:
         return 0.0
 
 
-def intersectional_bias(
-    df: pd.DataFrame,
-    col_a: str,
-    col_b: str,
-    target: str,
-    min_group_size: int = 10,
-) -> dict | None:
-    """
-    Outcome rate for every combination of col_a × col_b.
-    Only includes subgroups with >= min_group_size rows (small cells are noisy).
-
-    Example:
-      ("female", "1st") → 0.968
-      ("male",   "3rd") → 0.135
-    A large spread across subgroups = intersectional bias.
-    """
-    if target not in df.columns:
-        return None
-    try:
-        grouped = (
-            df.dropna(subset=[col_a, col_b, target])
-            .groupby([col_a, col_b])[target]
-            .agg(["mean", "count"])
-            .reset_index()
-        )
-        result = {}
-        for _, row in grouped.iterrows():
-            if row["count"] >= min_group_size:
-                key = f"{row[col_a]} × {row[col_b]}"
-                result[key] = round(float(row["mean"]), 3)
-        return result if result else None
-    except Exception:
-        return None
-
-
-def intersectional_outcome_gap(intersectional: dict | None) -> float:
-    """Max minus min outcome across all intersectional subgroups."""
-    if not intersectional or len(intersectional) < 2:
-        return 0.0
-    vals = list(intersectional.values())
-    return round(max(vals) - min(vals), 4)
-
-
 def missing_rate(df: pd.DataFrame, column: str) -> float:
     """Fraction of rows where column is NaN."""
     return round(df[column].isna().mean(), 4)
