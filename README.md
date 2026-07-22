@@ -19,7 +19,7 @@ short_description: "Bias detection for any CSV: chi2, Cramer's V, LLM judge"
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![Tests](https://img.shields.io/badge/tests-35%20passing-brightgreen)
 
-Autonomous 4-phase dataset bias detection — works on **any CSV**.
+Autonomous 3-phase dataset bias detection — works on **any CSV**.
 
 Upload a dataset, pick the outcome column, and the agent decides on its own which columns
 deserve scrutiny, whether the imbalance it finds is statistically real, whether two biases
@@ -33,8 +33,7 @@ See **[DEPLOY.md](DEPLOY.md)** to run it as a free Hugging Face Space.
 |---|---|
 | **Phase 1** | Per-column distribution analysis + chi-squared significance test |
 | **Phase 2** | Chain-of-thought synthesis + Cramér's V compounding detection |
-| **Phase 3** | Intersectional bias across column pairs |
-| **Phase 4** | Plain-English LLM explanation per biased column |
+| **Phase 3** | Plain-English LLM explanation per biased column |
 | **Judge** | Independent GPT-4o-mini evaluation of all findings |
 
 ## Features
@@ -45,7 +44,6 @@ See **[DEPLOY.md](DEPLOY.md)** to run it as a free Hugging Face Space.
 - **Statistical significance** — p-values filter out noise from small datasets
 - **Risk levels** — CRITICAL / HIGH / MEDIUM / LOW based on 4 combined factors
 - **Compounding bias** — Cramér's V catches correlated biased columns that amplify each other
-- **Intersectional analysis** — outcome rates across column *combinations* (e.g. Sex × Pclass)
 - **Plain-English explanations** — LLM explains what each bias means and how to fix it
 
 ## Setup
@@ -75,7 +73,7 @@ phases are unavailable.
 
 ```
 app.py            — Gradio UI + pipeline orchestration
-agent.py          — BiasAgent: 4-phase detection loop + LLM judge
+agent.py          — BiasAgent: 3-phase detection loop + LLM judge
 tools.py          — Stateless analysis functions (pure Python + scipy)
 prompts.py        — Prompt templates
 tests/            — Unit tests for the statistical layer (no API key needed)

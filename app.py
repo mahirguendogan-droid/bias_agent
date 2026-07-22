@@ -283,7 +283,7 @@ with gr.Blocks(title="AutoBiasAgent") as demo:
     )
 
     with gr.Row():
-        run_btn    = gr.Button("▶  Run Agent  (4-phase pipeline)", variant="primary", size="lg")
+        run_btn    = gr.Button("▶  Run Agent  (3-phase pipeline)", variant="primary", size="lg")
         status_box = gr.Textbox(label="Status", interactive=False, scale=2)
 
     with gr.Tabs():
