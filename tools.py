@@ -147,9 +147,20 @@ def cramers_v(df: pd.DataFrame, col_a: str, col_b: str) -> float:
     """
     try:
         ct = pd.crosstab(df[col_a].dropna(), df[col_b].dropna())
-        chi2, _, _, _ = chi2_contingency(ct)
-        n = ct.sum().sum()
         r, k = ct.shape
+        n = ct.sum().sum()
+
+        # A constant column has no variation to associate with, so V is
+        # undefined. Guard explicitly: the division below would otherwise
+        # produce NaN rather than raise, and NaN would escape this function.
+        if min(r, k) < 2 or n == 0:
+            return 0.0
+
+        # correction=False: Yates' continuity correction is applied by default
+        # to 2x2 tables, which deflates chi2 and makes V understate the
+        # association. That is defensible for a hypothesis test but wrong for
+        # an effect size — with it, two identical columns score 0.98, not 1.0.
+        chi2, _, _, _ = chi2_contingency(ct, correction=False)
         v = np.sqrt(chi2 / (n * (min(r, k) - 1)))
         return round(float(v), 3)
     except Exception:

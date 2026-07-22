@@ -1,0 +1,34 @@
+name: Deploy to Hugging Face Space
+
+# Mirrors this repo to a Hugging Face Space on every push to main.
+# The Space front matter already lives at the top of README.md, so this is a
+# plain force-push — no file rewriting.
+#
+# One-time setup is documented in DEPLOY.md. Until the HF_SPACE variable is
+# set, this job is skipped, so it never fails a clean checkout.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: vars.HF_SPACE != ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Push to Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE: ${{ vars.HF_SPACE }}
+        run: |
+          if [ -z "$HF_TOKEN" ]; then
+            echo "HF_TOKEN not set — skipping deploy."
+            exit 0
+          fi
+          git push --force \
+            "https://user:${HF_TOKEN}@huggingface.co/spaces/${HF_SPACE}" HEAD:main

@@ -218,7 +218,13 @@ CSS = """
 .preview-table th { background: #1e293b; }
 """
 
-with gr.Blocks(title="AutoBiasAgent", css=CSS) as demo:
+with gr.Blocks(title="AutoBiasAgent") as demo:
+
+    # Injected as a <style> tag rather than passed to gr.Blocks(css=...):
+    # Gradio 6 moved that argument to launch() and silently ignores it on the
+    # constructor, and Spaces does not always run this file through __main__.
+    # A style tag inside the layout works on every version and launch path.
+    gr.HTML(f"<style>{CSS}</style>")
 
     gr.HTML("""
         <div style="text-align:center;padding:1rem 0">

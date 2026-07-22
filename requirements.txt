@@ -1,7 +1,9 @@
 
 # requirements.txt — installed automatically by HuggingFace Spaces
 openai>=1.0.0
-gradio>=4.36.0
+# Pinned to the major version the UI is tested against: Gradio 6 moved `css`
+# off the Blocks constructor, so an unbounded range can silently change layout.
+gradio>=6.20,<7
 pandas>=2.0.0
 matplotlib>=3.8.0
 numpy>=1.24.0
