@@ -13,6 +13,8 @@ short_description: "Bias detection for any CSV: chi2, Cramer's V, LLM judge"
 
 # AutoBiasAgent
 
+[![Open in Spaces](https://img.shields.io/badge/▶️_Try_it_live-Hugging_Face_Space-FFD21E?style=for-the-badge&logo=huggingface&logoColor=black)](https://huggingface.co/spaces/mahirgundogan/AutoBiasAgent)
+
 [![CI](https://github.com/mahirguendogan-droid/bias_agent/actions/workflows/ci.yml/badge.svg)](https://github.com/mahirguendogan-droid/bias_agent/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![Tests](https://img.shields.io/badge/tests-35%20passing-brightgreen)
