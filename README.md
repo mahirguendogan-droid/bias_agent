@@ -8,7 +8,7 @@ sdk_version: 6.20.0
 app_file: app.py
 pinned: false
 license: mit
-short_description: Autonomous bias detection for any CSV — chi², Cramér's V and an LLM judge
+short_description: "Bias detection for any CSV: chi2, Cramer's V, LLM judge"
 ---
 
 # AutoBiasAgent
