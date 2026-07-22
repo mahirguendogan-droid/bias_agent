@@ -22,6 +22,7 @@ import pandas as pd
 from openai import OpenAI
 
 from tools import (
+    DEFAULT_IGNORE,
     get_categorical_columns,
     get_distribution,
     detect_bias,
@@ -62,7 +63,11 @@ class BiasAgent:
         self.ignore_cols = ignore_cols or set()
         self.client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
-        full_ignore = self.ignore_cols.copy()
+        # Start from DEFAULT_IGNORE. get_categorical_columns only falls back to
+        # it when `ignore` is None, and this always passes a set, so the
+        # defaults were silently never applied — free-text columns like Name
+        # and Ticket were being analysed as categorical features.
+        full_ignore = DEFAULT_IGNORE | self.ignore_cols
         if target_col:
             full_ignore.add(target_col)
 

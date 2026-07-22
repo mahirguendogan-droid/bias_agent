@@ -98,11 +98,11 @@ def run_pipeline(file_obj, target_col_raw, ignore_cols_raw):
                 "❌ OPENAI_API_KEY missing or invalid.\n\n"
                 "Add it in HuggingFace → Settings → Secrets, then reboot the Space."
             )
-            return msg, msg, "", None, None, "❌ No API key"
+            return msg, msg, "", None, "❌ No API key"
 
         df = load_df(file_obj)
         if df is None:
-            return "❌ No dataset.", "❌ No dataset.", "", None, None, "❌ No data"
+            return "❌ No dataset.", "❌ No dataset.", "", None, "❌ No data"
 
         target_col = None if target_col_raw in ("(none)", "", None) else target_col_raw
         ignore_cols = set(ignore_cols_raw) if ignore_cols_raw else set()
@@ -111,7 +111,7 @@ def run_pipeline(file_obj, target_col_raw, ignore_cols_raw):
         analysis_log, findings = agent.run_detection_loop()
 
         if not findings:
-            return analysis_log, "❌ No columns detected.", "", None, None, "⚠ No findings"
+            return analysis_log, "❌ No columns detected.", "", None, "⚠ No findings"
 
         judge_verdict = agent.evaluate(findings)
         explanations_text = _format_explanations(findings, target_col)
@@ -127,7 +127,7 @@ def run_pipeline(file_obj, target_col_raw, ignore_cols_raw):
 
     except Exception as e:
         err = f"❌ {type(e).__name__}: {e}\n\n{traceback.format_exc()}"
-        return err, err, "", None, None, "❌ Error"
+        return err, err, "", None, "❌ Error"
 
 
 def _format_explanations(findings: list[dict], target_col: str | None) -> str:

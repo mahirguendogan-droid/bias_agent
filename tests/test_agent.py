@@ -39,6 +39,45 @@ def correlated_df():
     )
 
 
+def test_identifier_and_free_text_columns_are_skipped():
+    """
+    DEFAULT_IGNORE must reach get_categorical_columns. It previously did not:
+    the agent always passed a set, and the defaults were only applied when the
+    argument was None, so Name, Ticket and Cabin were analysed as categorical
+    features on the bundled Titanic data.
+    """
+    df = pd.DataFrame(
+        {
+            "Name": [f"Passenger {i}" for i in range(60)],
+            "Ticket": [f"T-{i}" for i in range(60)],
+            "Cabin": [f"C{i}" for i in range(60)],
+            "PassengerId": range(60),
+            "Sex": ["male"] * 50 + ["female"] * 10,
+            "Survived": [0] * 40 + [1] * 20,
+        }
+    )
+    agent = BiasAgent(df, target_col="Survived")
+
+    for skipped in ("Name", "Ticket", "Cabin", "PassengerId"):
+        assert skipped not in agent.columns, f"{skipped} should be ignored by default"
+    assert "Sex" in agent.columns
+
+
+def test_caller_ignores_extend_rather_than_replace_the_defaults():
+    df = pd.DataFrame(
+        {
+            "Name": [f"P{i}" for i in range(40)],
+            "Sex": ["male"] * 30 + ["female"] * 10,
+            "Deck": ["A"] * 20 + ["B"] * 20,
+        }
+    )
+    agent = BiasAgent(df, ignore_cols={"Deck"})
+
+    assert "Deck" not in agent.columns, "caller-supplied ignores must apply"
+    assert "Name" not in agent.columns, "defaults must still apply alongside them"
+    assert "Sex" in agent.columns
+
+
 def test_compounding_columns_are_recorded_on_the_findings(correlated_df):
     agent = BiasAgent(correlated_df, target_col="Survived")
     _, findings = agent.run_detection_loop()
