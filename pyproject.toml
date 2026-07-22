@@ -1,0 +1,6 @@
+[tool.pytest.ini_options]
+# The modules under test live at the repo root, not in a package. Without this,
+# a bare `pytest tests/` cannot import them: only `python -m pytest` happens to
+# work, because that form prepends the working directory to sys.path.
+pythonpath = ["."]
+testpaths = ["tests"]
