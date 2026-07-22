@@ -192,6 +192,8 @@ class BiasAgent:
 
         if len(biased_cols) < 2:
             self._log("   Only one biased column — no compounding possible.")
+            for f in findings:
+                f["compounding_with"] = []
             return findings
 
         self._log(f"   Checking compounding bias between {len(biased_cols)} biased columns...")
@@ -209,6 +211,14 @@ class BiasAgent:
         # Upgrade risk for columns involved in compounding pairs
         compounding_cols = {col for pair in compounding_pairs for col in pair[:2]}
         for f in findings:
+            # Record which columns this one compounds with, so the explanation
+            # and judge phases can see it. Without this the pairs exist only in
+            # the log and never reach the LLM.
+            f["compounding_with"] = [
+                (col_b if col_a == f["column"] else col_a, v)
+                for col_a, col_b, v in compounding_pairs
+                if f["column"] in (col_a, col_b)
+            ]
             if f["column"] in compounding_cols:
                 if f["risk_level"] != "CRITICAL":
                     old = f["risk_level"]
@@ -236,6 +246,15 @@ class BiasAgent:
         for f in biased:
             col = f["column"]
             self._log(f"   🤖 LLM CALL → explain '{col}'")
+
+            partners = f.get("compounding_with") or []
+            inter_summary = (
+                "\nCompounding: this column's bias is correlated with "
+                + ", ".join(f"'{other}' (Cramér's V={v})" for other, v in partners)
+                + " — the biases amplify each other."
+                if partners
+                else ""
+            )
 
             prompt = f"""You are a data scientist explaining a bias finding to a non-technical stakeholder.
 
@@ -289,7 +308,7 @@ Be specific. No preamble. No bullet points. Just 3 sentences."""
                 "risk_level": f["risk_level"],
                 "chi_squared_significant": f["chi_squared"].get("significant"),
                 "outcome_gap_pct": round(f["outcome_gap"] * 100, 1) if f.get("outcome_gap") else None,
-                "intersectional_pairs": list(f["intersectional"].keys()) if f.get("intersectional") else [],
+                "compounding_with": [other for other, _ in f.get("compounding_with") or []],
                 "explanation": f.get("explanation"),
             }
             clean.append(entry)

@@ -34,3 +34,28 @@ jobs:
       # The statistical layer is pure and offline, so CI needs no API key.
       - name: Run test suite
         run: pytest tests/ -v
+
+  lint:
+    name: Lint (errors only)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pylint
+
+      # Errors only. This catches undefined names, which is not hypothetical:
+      # an undefined variable interpolated into an f-string crashed every run
+      # that had a working API key, and no test covered that path at the time.
+      # gradio is excluded because its components build methods dynamically,
+      # which pylint reports as false no-member errors.
+      - name: Pylint
+        run: pylint --errors-only --ignored-modules=gradio agent.py app.py tools.py prompts.py
